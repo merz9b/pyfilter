@@ -69,6 +69,9 @@ def loglikelihood(w, weights=None):
 
     maxw, _ = w.max(-1)
 
+    if weights is not None and weights.requires_grad:
+        weights.detach_()
+
     # ===== Calculate the second term ===== #
     if weights is None:
         temp = torch.exp(w - (maxw.unsqueeze(-1) if maxw.dim() > 0 else maxw)).mean(-1).log()
