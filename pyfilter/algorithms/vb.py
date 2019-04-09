@@ -146,7 +146,7 @@ class SequentialVariationalBayes(SequentialAlgorithm):
         self._init_optimizer.zero_grad()
 
         self._filter.filter(y)
-        self._filter.s_ll[-1].mean().backward()
+        (-(self._filter.s_ll[-1].mean() + self._p_approx.entropy())).backward()
 
         self._init_optimizer.step()
         self._update_params()
