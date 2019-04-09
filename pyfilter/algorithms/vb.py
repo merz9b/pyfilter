@@ -1,4 +1,4 @@
-from .base import BatchAlgorithm
+from .base import BatchAlgorithm, SequentialAlgorithm
 import torch
 from torch import optim
 import tqdm
@@ -103,3 +103,54 @@ class VariationalBayes(BatchAlgorithm):
             bar.set_description('{:s} - Avg. ELBO: {:.2f}'.format(str(self), self._runavg))
 
         return self
+
+
+class SequentialVariationalBayes(SequentialAlgorithm):
+    def __init__(self, filter_, num_samples=4, optimizer=optim.Adam, optkwargs=None):
+        """
+        Variational Bayes using SMC.
+        :param num_samples: The number of samples
+        :type num_samples: int
+        :param optimizer: The optimizer
+        :type optimizer: optim.Optimizer
+        :param optkwargs: Any optimizer specific kwargs
+        :type optkwargs: dict
+        """
+        super().__init__(filter_)
+        self._numsamples = num_samples
+
+        self._p_approx = None   # type: ParameterApproximation
+
+        self._optimizer = optimizer
+        self._init_optimizer = None
+        self.optkwargs = optkwargs or dict()
+
+    def _update_params(self):
+        params = self._p_approx.sample(self._numsamples)
+        for i, p in enumerate(self._filter.ssm.flat_theta_dists):
+            p.t_values = params[..., i]
+
+        return self
+
+    def initialize(self):
+        self._p_approx = ParameterApproximation().initialize(self._filter.ssm.flat_theta_dists)
+        self._init_optimizer = self._optimizer(self._p_approx.get_parameters(), **self.optkwargs)
+
+        self._update_params()
+
+        self._filter.set_nparallel(self._numsamples).initialize()
+
+        return self
+
+    def _update(self, y):
+        self._init_optimizer.zero_grad()
+
+        self._filter.filter(y)
+        self._filter.s_ll[-1].mean().backward()
+
+        self._init_optimizer.step()
+        self._update_params()
+
+        return self
+
+
