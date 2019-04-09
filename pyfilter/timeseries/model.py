@@ -178,7 +178,7 @@ class StateSpaceModel(object):
         :param transformed: If you use an unconstrained proposal you need to use `transformed=True`
         :type transformed: bool
         :return: The prior evaluated at current parameter values
-        :rtype: torch.Tensor|float
+        :rtype: torch.Tensor
         """
 
         return self.hidden.p_prior(transformed) + self.observable.p_prior(transformed)
