@@ -1,6 +1,6 @@
 from .base import BaseFilter, tqdm
 from torch import nn
-from torch.optim import Adam, Optimizer
+from torch.optim import Adam
 from torch.distributions import Normal, Independent
 import torch
 
@@ -8,7 +8,7 @@ import torch
 # TODO: Check if RNN is more suitable as compared to LSTM
 # TODO: Does not work for values outside of training - need to normalize?
 class SimpleRNN(nn.Module):
-    def __init__(self, obsndim, hiddendim, hidden_size=10):
+    def __init__(self, obsndim, hiddendim, hidden_size=2):
         """
         Basic recurrent neural network, taken from: https://gist.github.com/spro/ef26915065225df65c1187562eca7ec4
         :param obsndim: The dimension of the observation part of the model
@@ -23,14 +23,11 @@ class SimpleRNN(nn.Module):
         self.hidden_size = hidden_size
         self._outdim = 2 * hiddendim
 
-        self.inp = nn.Linear(obsndim + self._outdim, self.hidden_size)
-        self.rnn = nn.LSTM(self.hidden_size, self.hidden_size, 1)
+        self.rnn = nn.RNN(obsndim + self._outdim, self.hidden_size, nonlinearity='relu')
         self.out = nn.Linear(self.hidden_size, self._outdim)
 
     def step(self, inp, hidden=None):
-        inp = self.inp(inp.view(1, -1)).unsqueeze(1)
-
-        output, hidden = self.rnn(inp, hidden)
+        output, hidden = self.rnn(inp.view(1, -1).unsqueeze(1), hidden)
         output = self.out(output.squeeze(1))
 
         return output, hidden
@@ -41,6 +38,7 @@ class SimpleRNN(nn.Module):
         return output[None]
 
 
+# TODO: Batched training?
 class VariationalFilter(BaseFilter):
     def __init__(self, model, rnn=None, optimizer=Adam, n_samples=4):
         """
